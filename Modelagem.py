@@ -89,56 +89,30 @@ def load_instance_from_txt(file_path: str) -> Instance:
     return inst
 
 # ---------------------------
-# 3) Verificar e calcular a solução
+# 3) Verificar e calcular a solução, sendo ela total ou parcial
 # ---------------------------
-def verify_solution(inst: Instance, seq: List[int]) -> Dict:
+def verify_solution_ori(inst: Instance, seq: List[int]) -> Dict:
     """
-    Verifica se 'seq' é uma solução válida e calcula:
+    Recebe uma sequencia de jobs (0-based) e
+    Verifica se 'seq' é uma solução válida até então e calcular:
       - factível? (boolean)
       - violações (lista textual)
       - C_max (makespan)
       - cronograma: b[i], c[i] (inícios e términos)
     """
-    # print("\n=== Iniciando verificação da solução ===")
-    # print(f"Sequência original: {seq}")
+    print("\n=== Iniciando verificação da solução ===")
+    print(f"Sequência original: {seq}")
     
-    n = inst.n
-    # print(f"Número de jobs (n): {n}")
+    n_inst = inst.n
+    print(f"Número de jobs na instância(n_inst): {n_inst}")
 
-    # Ajusta seq se for no formato 1..n
-    if all(1 <= job <= n for job in seq):
-        seq_norm = [job - 1 for job in seq]  # Ajusta para 0-based
-        # print(f"Sequência normalizada (0-based): {seq_norm}")
-    else:
-        seq_norm = seq[:]
-        # print("Sequência já estava normalizada")
+    n = len(seq)
+    print(f"Número de jobs na sequência: {n}")
 
     # Verifica precedências (ordem)
-    pos = {job: idx for idx, job in enumerate(seq_norm)}
+    pos = {job: idx for idx, job in enumerate(seq)}
     # print("\n=== Verificando precedências (ordem) ===")
     # print(f"Posições dos jobs: {pos}")
-
-    order_viol = []
-    for i in range(n):
-        for j in range(n):
-            if inst.d[i][j] != -1:  # Se há precedência
-                # print(f"Checando precedência {i}->{j} (atraso={inst.d[i][j]})")
-                # print(f"  Posição de {i}: {pos[i]}")
-                # print(f"  Posição de {j}: {pos[j]}")
-                if pos[i] > pos[j]:
-                    # print(f"  VIOLAÇÃO: {i} deveria vir antes de {j}")
-                    order_viol.append((i, j))
-
-    if len(order_viol) > 0:
-        # print(f"\nViolações de ordem encontradas: {order_viol}")
-        return {
-            "feasible": False, 
-            "violations": [f"Ordem de precedência violada: {order_viol}."],
-            "C_max": None, 
-            "b": None, 
-            "c": None,
-            "sequence_normalized": seq_norm
-        }
 
     # Calcula cronograma e verifica delays
     # print("\n=== Calculando cronograma e verificando delays ===")
@@ -146,19 +120,19 @@ def verify_solution(inst: Instance, seq: List[int]) -> Dict:
     c = [0.0] * n  # Términos
     delay_viol = []  # Violações de delay de precedência
 
-    # print(f"\nProcessando job {seq_norm[0]} na primeira posição")
-    # print(f"  Início (b[{seq_norm[0]}]) = 0.0")
-    # print(f"  Término (c[{seq_norm[0]}]) = {inst.p[seq_norm[0]]}")
-    c[seq_norm[0]] = inst.p[seq_norm[0]]
+    # print(f"\nProcessando job {seq[0]} na primeira posição")
+    # print(f"  Início (b[{seq[0]}]) = 0.0")
+    # print(f"  Término (c[{seq[0]}]) = {inst.p[seq[0]]}")
+    c[seq[0]] = inst.p[seq[0]]
 
     # Para cada job j na sequência
-    for r in range(1, len(seq_norm)):
-        j = seq_norm[r]    # job atual
+    for r in range(1, n):
+        j = seq[r]    # job atual
         # print(f"\nProcessando job {j}")
         
         # Encontra o início mais tardio considerando todas as precedências
         latest_start = 0.0
-        for i in range(n):
+        for i in range(n_inst):
             if inst.d[i][j] != -1:  # Se i precede j
                 required_start = c[i] + inst.d[i][j]
                 if required_start > latest_start:
@@ -169,7 +143,7 @@ def verify_solution(inst: Instance, seq: List[int]) -> Dict:
                 # print(f"    Início mínimo: {required_start}")
 
         # Considera também o setup do job imediatamente anterior
-        i = seq_norm[r-1]  # job anterior na sequência
+        i = seq[r-1]  # job anterior na sequência
         setup_start = c[i] + inst.s[i][j]
         # print(f"  Setup após job {i}: {c[i]} + {inst.s[i][j]} = {setup_start}")
         
@@ -196,10 +170,10 @@ def verify_solution(inst: Instance, seq: List[int]) -> Dict:
             "C_max": None,
             "b": b,
             "c": c,
-            "sequence_normalized": seq_norm
+            "sequence_normalized": seq
         }
 
-    C_max = c[seq_norm[-1]]
+    C_max = c[seq[-1]]
     # print(f"\nMakespan (C_max) = {C_max}")
 
     return {
@@ -208,5 +182,113 @@ def verify_solution(inst: Instance, seq: List[int]) -> Dict:
         "C_max": C_max,
         "b": b,
         "c": c,
-        "sequence_normalized": seq_norm
+        "sequence_normalized": seq
+    }
+
+
+
+
+def verify_solution(inst, seq: List[int]) -> Dict:
+    """
+    Verifica (parcial ou total) uma sequência de jobs 0-based para 1 | s_ij, prec(d_ij) | Cmax.
+
+    Regras de precedência (fortes) na parcial:
+      - Se j está na parcial e existe i com d[i][j] >= 0, então i DEVE estar na parcial
+        e deve aparecer antes de j (pos[i] < pos[j]).
+    """
+    print("\n=== Iniciando verificação da solução ===")
+    print(f"Sequência original: {seq}")
+
+    n_all = inst.n
+    if len(set(seq)) != len(seq):
+        return {"feasible": False, "violations": ["Sequência contém jobs repetidos."],
+                "C_max": None, "b": None, "c": None, "sequence_normalized": seq}
+
+    # Sanidade de IDs
+    if any((j < 0 or j >= n_all) for j in seq):
+        return {"feasible": False, "violations": ["IDs fora do intervalo 0..n-1."],
+                "C_max": None, "b": None, "c": None, "sequence_normalized": seq}
+
+    pos = {job: idx for idx, job in enumerate(seq)}
+    violations = []
+
+    # -------- 1) Precedência estrutural (ordem) com verificação de predecessores ausentes --------
+    #
+    # Regra: para cada j presente na parcial, todos os i com d[i][j] >= 0 precisam:
+    #   (a) estar na parcial, e
+    #   (b) aparecer antes de j.
+    #
+    for j in seq:
+        for i in range(n_all):
+            d = inst.d[i][j]
+            if d != -1:  # existe i -> j
+                if i not in pos:
+                    violations.append(f"Predecessor ausente: {i} deve vir antes de {j}.")
+                else:
+                    if pos[i] > pos[j]:
+                        violations.append(f"Ordem de precedência violada: {i} deve vir antes de {j}.")
+
+    if violations:
+        return {"feasible": False, "violations": violations,
+                "C_max": None, "b": None, "c": None, "sequence_normalized": seq}
+
+    # -------- 2) Agenda parcial em ordem da sequência --------
+    b = [None] * n_all
+    c = [None] * n_all
+
+    if not seq:
+        return {"feasible": True, "violations": [], "C_max": 0.0,
+                "b": b, "c": c, "sequence_normalized": seq}
+
+    # Primeiro job da sequência
+    j0 = seq[0]
+    b[j0] = 0.0
+    c[j0] = b[j0] + inst.p[j0]
+
+    # Demais
+    for r in range(1, len(seq)):
+        j = seq[r]
+        i_prev = seq[r-1]
+
+        # Setup imediato (Eq. 7)
+        cand_setup = c[i_prev] + inst.s[i_prev][j]
+
+        # Releases por predecessores já agendados (Eq. 8)
+        rel = 0.0
+        for i in seq[:r]:
+            d = inst.d[i][j]
+            if d != -1:
+                rel = max(rel, c[i] + d)
+
+        b[j] = max(cand_setup, rel)
+        c[j] = b[j] + inst.p[j]
+
+        # Checagens explícitas
+        if b[j] + 1e-9 < c[i_prev] + inst.s[i_prev][j]:
+            violations.append(
+                f"(7) violada em {i_prev}->{j}: b[{j}]={b[j]:.3f} < c[{i_prev}]({c[i_prev]:.3f}) + s={inst.s[i_prev][j]}"
+            )
+        for i in seq[:r]:
+            d = inst.d[i][j]
+            if d != -1:
+                req = c[i] + d
+                if b[j] + 1e-9 < req:
+                    violations.append(
+                        f"Delay insuficiente em {i}->{j}: b[{j}]={b[j]:.3f} < c[{i}]({c[i]:.3f})+d({dij})={req:.3f}"
+                    )
+
+    if violations:
+        return {"feasible": False, "violations": violations,
+                "C_max": None, "b": b, "c": c, "sequence_normalized": seq}
+
+    # C_max parcial: término do último job da sequência
+    C_max = c[seq[-1]]
+
+    return {
+        "feasible": True,
+        "violations": [],
+        "C_max": C_max,
+        "b": b,
+        "c": c,
+        "sequence_normalized": seq
     }
