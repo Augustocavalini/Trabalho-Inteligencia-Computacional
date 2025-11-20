@@ -188,7 +188,7 @@ def verify_solution_ori(inst: Instance, seq: List[int]) -> Dict:
 
 
 
-def verify_solution(inst, seq: List[int]) -> Dict:
+def verify_solution(inst, seq: List[int], verbose: bool) -> Dict:
     """
     Verifica (parcial ou total) uma sequência de jobs 0-based para 1 | s_ij, prec(d_ij) | Cmax.
 
@@ -196,8 +196,9 @@ def verify_solution(inst, seq: List[int]) -> Dict:
       - Se j está na parcial e existe i com d[i][j] >= 0, então i DEVE estar na parcial
         e deve aparecer antes de j (pos[i] < pos[j]).
     """
-    print("\n=== Iniciando verificação da solução ===")
-    print(f"Sequência original: {seq}")
+    if verbose:
+        print("\n=== Iniciando verificação da solução ===")
+        print(f"Sequência original: {seq}")
 
     n_all = inst.n
     if len(set(seq)) != len(seq):
@@ -274,7 +275,7 @@ def verify_solution(inst, seq: List[int]) -> Dict:
                 req = c[i] + d
                 if b[j] + 1e-9 < req:
                     violations.append(
-                        f"Delay insuficiente em {i}->{j}: b[{j}]={b[j]:.3f} < c[{i}]({c[i]:.3f})+d({dij})={req:.3f}"
+                        f"Delay insuficiente em {i}->{j}: b[{j}]={b[j]:.3f} < c[{i}]({c[i]:.3f})+d({d[i][j]})={req:.3f}"
                     )
 
     if violations:

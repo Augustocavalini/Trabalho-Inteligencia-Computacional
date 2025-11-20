@@ -73,6 +73,8 @@ def plot_gantt(inst: Instance, res: Dict, title: Optional[str] = None) -> None:
     plt.tight_layout()
     plt.grid(True, alpha=0.3)
     plt.show()
+    print("Gantt plot gerado com sucesso.")
+    print("solução:", res["sequence_normalized"])
 
 def plot_precedence_graph(inst: Instance, title: Optional[str] = None) -> None:
     """

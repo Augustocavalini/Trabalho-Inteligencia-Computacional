@@ -222,7 +222,7 @@ def greedy_constructive_build(
 
     # valida prefixo inicial (se houver)
     if sol:
-        res0 = md.verify_solution(inst, sol)
+        res0 = md.verify_solution(inst, sol, verbose=True)
         if not res0.get("feasible", False):
             return sol, {
                 "feasible": False,
@@ -245,7 +245,7 @@ def greedy_constructive_build(
             if j in sol:
                 continue
             trial = sol + [j]
-            res_try = md.verify_solution(inst, trial)
+            res_try = md.verify_solution(inst, trial, verbose=True)
             if res_try.get("feasible", False):
                 chosen = j
                 break
@@ -259,7 +259,7 @@ def greedy_constructive_build(
         scores = update_scores(inst, sol, scores)
 
     # verificação final
-    res = md.verify_solution(inst, sol)
+    res = md.verify_solution(inst, sol, verbose=True)
 
     # plot opcional
     if plot_title is not None:
@@ -299,7 +299,7 @@ def randomized_greedy_constructive_build(
 
     # valida prefixo inicial (se houver)
     if sol:
-        res0 = md.verify_solution(inst, sol)
+        res0 = md.verify_solution(inst, sol, verbose=True)
         if not res0.get("feasible", False):
             return sol, {
                 "feasible": False,
@@ -337,7 +337,7 @@ def randomized_greedy_constructive_build(
         chosen = None
         for j, _v in rcl_shuffled:
             trial = sol + [j]
-            res_try = md.verify_solution(inst, trial)
+            res_try = md.verify_solution(inst, trial, verbose=True)
             if res_try.get("feasible", False):
                 chosen = j
                 break
@@ -348,7 +348,7 @@ def randomized_greedy_constructive_build(
                 if j in sol:
                     continue
                 trial = sol + [j]
-                res_try = md.verify_solution(inst, trial)
+                res_try = md.verify_solution(inst, trial, verbose=True)
                 if res_try.get("feasible", False):
                     chosen = j
                     break
@@ -360,7 +360,7 @@ def randomized_greedy_constructive_build(
         sol.append(chosen)
         scores = update_scores(inst, sol, scores)
 
-    res = md.verify_solution(inst, sol)
+    res = md.verify_solution(inst, sol, verbose=True)
 
     # plot opcional
     if plot_title is not None:
