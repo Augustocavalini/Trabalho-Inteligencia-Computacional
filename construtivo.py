@@ -182,7 +182,7 @@ def greedy_constructive_build(
         update_scores: callable, 
         initial_scores: list[tuple[int, float]], 
         initial_seq: Optional[List[int]] = None, 
-        plot_title: str | None = "Gantt — Construtivo Guloso"
+        plot_title: str | None = None
 ):
     """
     Constrói uma solução viável completa com uma estratégia genérica de ordenação (EFT, EST, etc)
@@ -276,7 +276,7 @@ def randomized_greedy_constructive_build(
     update_scores: callable,
     initial_scores: List[Tuple[int, float]],
     initial_seq: Optional[List[int]] = None,
-    plot_title: str | None = "Gantt — Construtivo Randômico",
+    plot_title: str | None = None,
     alpha: float = 0.0,
     rcl_size: Optional[int] = None,
     seed: Optional[int] = None

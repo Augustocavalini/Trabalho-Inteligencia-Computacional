@@ -2,219 +2,157 @@ import Modelagem as md
 import view as vw
 import construtivo as ct
 import busca_local as bl
-
-inst = md.load_instance_from_txt("Instancias\\N10_P(10-20)_S(5-10)_A(20-40)_W5_Wo2_P2.txt")
-inst = md.load_instance_from_txt("Instancias\\N20_P(10-20)_S(5-10)_A(20-40)_W10_Wo5_P1.txt")
-# inst = md.load_instance_from_txt("teste.txt") 
-
-# lista inicial EST (ex.: baseada só em 0)
-initial_est = [(j, 0) for j in range(inst.n)]
-
-sol, res = ct.greedy_constructive_build(
-    inst=inst,
-    get_candidates_ordered=ct.get_candidates_ordered,
-    update_scores=ct.update_earliest_start_times,
-    initial_scores=initial_est,
-    initial_seq=None,  # ou um prefixo viável se quiser começar de um parcial
-    plot_title="Gantt — Construtivo por EST"
-)
+import pandas as pd  # <- novo import
+import time
 
 
-# lista inicial EFT (ex.: baseada só em p[j])
-initial_eft = [(j, inst.p[j]) for j in range(inst.n)]
+def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> None:
+    """
+    Executa o pipeline de simulações para uma instância:
+      1) Carrega instância
+      2) Constrói soluções por EST e EFT
+      3) Escolhe a melhor para iniciar busca local
+      4) Roda operadores de busca local com critério de estagnação
+    """
+    print(f"\n==============================")
+    print(f"Rodando instância: {file_path}")
+    print(f"==============================")
 
-sol, res = ct.greedy_constructive_build(
-    inst=inst,
-    get_candidates_ordered=ct.get_candidates_ordered,
-    update_scores=ct.update_earliest_finish_times,
-    initial_scores=initial_eft,
-    initial_seq=None,  # ou um prefixo viável se quiser começar de um parcial
-    plot_title="Gantt — Construtivo por EFT"
-)
+    # 1) Carregar instância
+    inst = md.load_instance_from_txt("Instancias\\"+file_path)
 
-# *********************************************************************************************************************
-# BUSCA LOCAL 1
-
-# max_stagnation = 10
-# stagnation_counter = 0
-# buscalocal_res = res
-
-# while stagnation_counter < max_stagnation:
-#     buscalocal_sol, buscalocal_res, improved = bl.buscalocal1(
-#         inst=inst, res=buscalocal_res
-#     )
-#     if improved:
-#         vw.plot_gantt(inst, buscalocal_res, title=f"Gantt — Após Encontrar OL BL1 {stagnation_counter}")
-#         stagnation_counter = 0
-#     else:
-#         print(f"Nenhuma melhoria encontrada. Contador de estagnação: {stagnation_counter}")
-#         stagnation_counter += 1
-
-# vw.plot_gantt(inst, buscalocal_res, title="Gantt — Após Busca Local 1")
-
-# *********************************************************************************************************************
-# JOB EXCHANGE
-
-max_stagnation = 10
-stagnation_counter = 0
-job_exchange_res = res
-
-while stagnation_counter < max_stagnation:
-    job_exchange_sol, job_exchange_res, improved = bl.bl_job_exchange(
-        inst=inst, res= res
+    # 2) Construtivo por EST
+    initial_est = [(j, 0) for j in range(inst.n)]
+    sol_est, res_est = ct.greedy_constructive_build(
+        inst=inst,
+        get_candidates_ordered=ct.get_candidates_ordered,
+        update_scores=ct.update_earliest_start_times,
+        initial_scores=initial_est,
+        initial_seq=None,
+        # plot_title="Gantt — Construtivo por EST"
     )
 
-    if improved:
-        vw.plot_gantt(inst, job_exchange_res, title=f"Gantt — Após Encontrar OL JE {stagnation_counter}")
-        stagnation_counter = 0
-    else:
-        print(f"Nenhuma melhoria encontrada. Contador de estagnação: {stagnation_counter}")
-        stagnation_counter += 1
-
-vw.plot_gantt(inst, job_exchange_res, title="Gantt — Após Job Exchange")
-
-
-# ********************************************************************************************************************
-# BLOCK THROW
-
-max_stagnation = 10
-stagnation_counter = 0
-block_throw_res = res
-
-while stagnation_counter < max_stagnation:
-    block_throw_sol, block_throw_res, improved = bl.insert_block_random(
-        Inst=inst, res= res
+    # 2) Construtivo por EFT
+    initial_eft = [(j, inst.p[j]) for j in range(inst.n)]
+    sol_eft, res_eft = ct.greedy_constructive_build(
+        inst=inst,
+        get_candidates_ordered=ct.get_candidates_ordered,
+        update_scores=ct.update_earliest_finish_times,
+        initial_scores=initial_eft,
+        initial_seq=None,
+        # plot_title="Gantt — Construtivo por EFT"
     )
 
-    if improved:
-        vw.plot_gantt(inst, block_throw_res, title=f"Gantt — Após Encontrar OL BT {stagnation_counter}")
+    # 3) Escolher melhor ponto de partida
+    def is_better(a, b):
+        """Melhor = factível e com menor C_max."""
+        if not a.get("feasible", False):
+            return False
+        if not b.get("feasible", False):
+            return True
+        return a["C_max"] <= b["C_max"]
+
+    start_sol, start_res = (sol_eft, res_eft) if is_better(res_eft, res_est) else (sol_est, res_est)
+    if not start_res.get("feasible", False):
+        print("[ERRO] Nenhuma solução construtiva viável encontrada. Encerrando esta instância.")
+        return
+
+    print(f"Solução inicial escolhida: C_max = {start_res['C_max']:.3f}")
+
+    # ---------- Helpers para loops de estagnação ----------
+    def run_stagnation_loop(label: str, fn, res_in, params: dict = {}):
+        """Roda operador local até estagnar por 'max_stagnation'."""
         stagnation_counter = 0
-    else:
-        print(f"Nenhuma melhoria encontrada. Contador de estagnação: {stagnation_counter}")
-        stagnation_counter += 1
-        
-vw.plot_gantt(inst, block_throw_res, title="Gantt — Após Block Throw")
+        current_res = res_in
+
+        while stagnation_counter < max_stagnation:
+            sol_out, res_out, improved = fn(inst=inst, res=current_res, **params) # ** desempacota o dicionário 'params' em argumentos nomeados
+            if improved:
+                # vw.plot_gantt(inst, res_out, title=f"Gantt — Após Encontrar OL {label} {stagnation_counter}")
+                print(f"[{label}] Melhoria encontrada! C_max = {res_out['C_max']:.3f}")
+                current_res = res_out
+                stagnation_counter = 0
+            else:
+                stagnation_counter += 1
+                print(f"[{label}] Nenhuma melhoria. Estagnação: {stagnation_counter}/{max_stagnation}")
+
+        # vw.plot_gantt(inst, current_res, title=f"Gantt — Após {label}")
+        return current_res
+
+    # 4) Fases de busca local (cada fase começa do melhor resultado até então)
+    best_res = start_res
+
+    # JOB EXCHANGE
+    best_res = run_stagnation_loop("JE", bl.bl_job_exchange, best_res)
+
+    # # BLOCK THROW
+    # best_res = run_stagnation_loop("BT", bl.insert_block_random, best_res)
+
+    # # INSERT JOB RANDOM
+    # best_res = run_stagnation_loop("IJR", bl.insert_job_random, best_res)
+
+    # # INSERT JOB BEST
+    # best_res = run_stagnation_loop("IJB", bl.insert_job_best, best_res)
+
+    # # INSERT BLOCK BEST
+    # print(f"\nParâmetros para IBB: min_block_size=2, max_block_size={int(inst.n*0.4)}")
+    # best_res = run_stagnation_loop("IBB", bl.insert_block_best, best_res, params={"min_block_size": 2, "max_block_size": int(inst.n*0.4)})
+
+    print(f"\nFinal da instância {file_path} — Melhor C_max = {best_res['C_max']:.3f}")
+
+    return best_res["C_max"]
 
 
-#*********************************************************************************************************************
-# INSERT_JOB_RANDOM
-max_stagnation = 10
-stagnation_counter = 0
-insert_job_random_res = res
-
-while stagnation_counter < max_stagnation:
-    insert_job_random_sol, insert_job_random_res, improved = bl.insert_job_random(
-        inst=inst, res= res
-    )
-
-    if improved:
-        vw.plot_gantt(inst, insert_job_random_res, title=f"Gantt — Após Encontrar OL IJR {stagnation_counter}")
-        stagnation_counter = 0
-    else:
-        print(f"Nenhuma melhoria encontrada. Contador de estagnação: {stagnation_counter}")
-        stagnation_counter += 1
-
-vw.plot_gantt(inst, insert_job_random_res, title="Gantt — Após Insert Job Random")
-
-
-#*********************************************************************************************************************
-#INSERT_JOB_BEST
-max_stagnation = 10
-stagnation_counter = 0
-insert_job_best_res = res
-
-while stagnation_counter < max_stagnation:
-    insert_job_best_sol, insert_job_best_res, improved = bl.insert_job_best(
-        inst=inst, res= res
-    )
-
-    if improved:
-        vw.plot_gantt(inst, insert_job_best_res, title=f"Gantt — Após Encontrar OL IJB {stagnation_counter}")
-        stagnation_counter = 0
-        
-    else:
-        stagnation_counter += 1
-        print(f"Nenhuma melhoria encontrada. Contador de estagnação: {stagnation_counter}")
-        
-vw.plot_gantt(inst, insert_job_best_res, title="Gantt — Após Insert Job Best")
-
-# *********************************************************************************************************************
-# #INSERT_BLOCK_BEST
-max_stagnation = 10
-stagnation_counter = 0 
-insert_block_best_res = res
-
-while stagnation_counter < max_stagnation:
-    insert_block_best_sol, insert_block_best_res, improved = bl.insert_block_best(
-        inst=inst, res= res
-    )
-
-    if improved:
-        vw.plot_gantt(inst, insert_block_best_res, title=f"Gantt — Após Encontrar OL IBB {stagnation_counter}")
-        stagnation_counter = 0
-        
-    else:
-        stagnation_counter += 1
-        print(f"Nenhuma melhoria encontrada. Contador de estagnação: {stagnation_counter}")
-        
-vw.plot_gantt(inst, insert_block_best_res, title="Gantt — Após Insert Block Best")
-
-# # inicializa scores (EFT/EST/LFT iniciais). aqui usamos zeros como exemplo.
-# initial_scores = [(j, 0.0) for j in range(inst.n)]
-
-# # chamada do construtivo guloso randomizado
-# sol, res = ct.randomized_greedy_constructive_build(
-#     inst=inst,
-#     get_candidates_ordered=ct.get_candidates_ordered,
-#     update_scores=ct.update_earliest_finish_times,
-#     initial_scores=initial_scores,
-#     initial_seq=None,    # ou um prefixo viável [0,1,...]
-#     plot_title="Gantt — Construtivo Randômico",
-#     alpha=0.3,           # largura da RCL (0 = puro guloso)
-#     rcl_size=None,       # ou um int para top-k
-#     seed=42              # para reprodutibilidade
-# )
-
-
-
-# Parâmetros do GRASP
-# n_constructions = 10  # número de soluções a construir
-# best_sol = None
-# best_res = None
-# best_makespan = float('inf')
-
-# print(f"\nConstruindo {n_constructions} soluções...")
-
-# for i in range(n_constructions):
-#     print(f"\n=== Construção {i+1}/{n_constructions} ===")
+if __name__ == "__main__":
     
-#     # inicializa scores (EFT/EST/LFT iniciais)
-#     initial_scores = [(j, 0.0) for j in range(inst.n)]
-    
-#     # constrói uma solução
-#     sol, res = ct.randomized_greedy_constructive_build(
-#         inst=inst,
-#         get_candidates_ordered=ct.get_candidates_ordered,
-#         update_scores=ct.update_earliest_finish_times,
-#         initial_scores=initial_scores,
-#         initial_seq=None,
-#         plot_title=None,  # não plota Gantt intermediário
-#         alpha=0.3,
-#         rcl_size=None,
-#         seed=42+i  # seed diferente para cada construção
-#     )
-    
-#     # atualiza melhor solução
-#     if res["feasible"] and res["C_max"] < best_makespan:
-#         best_makespan = res["C_max"]
-#         best_sol = sol
-#         best_res = res
-#         print(f"Nova melhor solução! Makespan: {best_makespan}")
+    excel_path = "Resultados.xlsx"
+    df = pd.read_excel(excel_path, header=0)
 
-# print(f"\n=== Melhor solução encontrada ===")
-# print(f"Sequência: {best_sol}")
-# print(f"Makespan: {best_makespan}")
+    # quantidade_inst_para_testar = 5 # vai testar as primeiras 5 instâncias listadas na coluna A do Excel
+    quantidade_inst_para_testar = len(df)  # vai testar todas as instâncias listadas na coluna A do Excel
 
-# # Plota apenas a melhor solução
-# if best_sol is not None:
-#     vw.plot_gantt(inst, best_res, title=f"Gantt — Melhor solução GRASP (C_max={best_makespan:.1f})")
+    for row, name in enumerate(df.iloc[:quantidade_inst_para_testar, 0].dropna()):
+        file_name = str(name).strip()
+        if not file_name:
+            continue
+
+        num_it = 1
+        best_result = 0
+        best_result_lit = df.iloc[row, 5]  # Coluna F (6) contém o melhor resultado da literatura
+        print(f"\nIniciando simulações para instância: {file_name}")
+        print("best_result_lit =", best_result_lit)
+        print("------------------------------")
+
+        sum_results = 0
+        sum_time = 0
+
+        for it in range(num_it):
+
+            start_time = time.time()
+            result = run_simulations_for_instance(file_name)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+
+            sum_results += result
+            sum_time += elapsed_time
+
+            if it == 0 or result < best_result:
+                best_result = result
+
+        mean_result = sum_results / num_it
+        mean_time = sum_time / num_it
+        diff_best = ((best_result - best_result_lit) / best_result_lit) * 100
+
+        # colocar para que as simulações rodem para todas as instâncias listadas na coluna A do Excel
+        # e escrevam os resultados necessários nas outras colunas:
+        # G: melhor resultado (coluna 7)
+        # H: média (10x) (coluna 8)
+        # I: tempo (s) (coluna 9)
+        # J: dif best (que está na coluna F:6) (%) (coluna 10)
+
+        df.iloc[row, 6] = best_result      # Coluna G
+        df.iloc[row, 7] = mean_result      # Coluna H
+        df.iloc[row, 8] = mean_time        # Coluna I
+        df.iloc[row, 9] = diff_best        # Coluna J
+
+    df.to_excel("Resultados_atualizado.xlsx", index=False)

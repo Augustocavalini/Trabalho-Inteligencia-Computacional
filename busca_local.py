@@ -196,7 +196,7 @@ def insert_job_best(inst: Instance, res: List[int]) -> Tuple[List[int], Dict]:
     return best_sol, best_solution, improved
 
 
-def insert_block_random(Inst: Instance, res: List[int]) -> Tuple[List[int], Dict]:
+def insert_block_random(inst: Instance, res: List[int]) -> Tuple[List[int], Dict]:
         
     print("\nIniciando Perturbação Block Throw...")
     
@@ -231,7 +231,7 @@ def insert_block_random(Inst: Instance, res: List[int]) -> Tuple[List[int], Dict
         # Insere o bloco na nova posição
         new_sol = new_sol[:insert_index] + block + new_sol[insert_index:]
         
-        new_solution = verify_solution(Inst, new_sol, verbose=False)
+        new_solution = verify_solution(inst, new_sol, verbose=False)
         
         if new_solution["feasible"] and new_solution["C_max"] < best_solution["C_max"]:
             
@@ -249,7 +249,7 @@ def insert_block_random(Inst: Instance, res: List[int]) -> Tuple[List[int], Dict
     return best_sol, best_solution, improved
 
 
-def insert_block_best(inst: Instance, res: List[int]) -> Tuple[List[int], Dict]:
+def insert_block_best(inst: Instance, res: List[int], min_block_size: int = 2, max_block_size: int = 3) -> Tuple[List[int], Dict]:
     
     print("\nIniciando Perturbação Insert Block Best...")
     
@@ -268,8 +268,8 @@ def insert_block_best(inst: Instance, res: List[int]) -> Tuple[List[int], Dict]:
     while stagnation_counter < max_stagnation:
         interation += 1
         
-        # Seleciona o tamanho do bloco (entre 2 e 4 tarefas)
-        block_size = random.randint(2, int(0.4*len(best_sol)))
+        # Seleciona o tamanho do bloco
+        block_size = random.randint(min_block_size, max_block_size)
         
         if len(best_sol) < block_size:
             continue
