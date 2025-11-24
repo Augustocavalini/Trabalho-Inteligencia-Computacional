@@ -347,7 +347,149 @@ def deterministic_job_selection(inst: Instance, res: List[int]) -> List[int]:
     print("Número de tentativas:", interation)
     
     return best_sol, best_solution, improved   
+
+def deterministic_block_selection(inst: Instance, res: List[int]) -> List[int]:
+    
+     print("\nIniciando Seleção Determinística de Blocos...")
+     best_solution = res
+     best_sol = res["sequence_normalized"]
+     best_sol_makespan = best_solution["C_max"]
+     
+     improved = False
+     
+     best_insertion_sol = None
+     best_insertion_makespan = float('inf')
+    
+     interation = 0
+    
+     while best_sol_makespan < best_insertion_makespan:
+          interation += 1
+          
+          for block_size in range(2, int(0.4 * len(best_sol)) + 1):
+                for start_index in range(len(best_sol) - block_size + 1):
+                 block = best_sol[start_index:start_index + block_size]
+                 
+                 # Remove o bloco da sequência
+                 new_sol = best_sol[:start_index] + best_sol[start_index + block_size:]
+                 
+                 # Tenta inserir o bloco em todas as posições possíveis
+                 for insert_index in range(len(new_sol) + 1):
+                      trial_sol = new_sol[:insert_index] + block + new_sol[insert_index:]
+                      trial_solution = verify_solution(inst, trial_sol, verbose=False)
+                      
+                      if trial_solution["feasible"] and trial_solution["C_max"] < best_insertion_makespan:
+                            best_insertion_makespan = trial_solution["C_max"]
+                            best_insertion_sol = trial_sol
+                            best_insertion_solution = trial_solution            
+                
+          if best_insertion_sol is not None and best_insertion_makespan < best_sol_makespan:
+                best_sol = best_insertion_sol
+                best_solution = best_insertion_solution
+                best_sol_makespan = best_insertion_makespan
+                print(f"Perturbação realizada: bloco movido para melhor posição, tentativa {interation}")
+                improved = True
+                
+     print("Perturbação Insert Block Best finalizada.")
+     print("Número de tentativas:", interation)
+     
+     return best_sol, best_solution, improved
+
+def deterministic_first_job_selection(inst: Instance, res: List[int]) -> List[int]:
    
+    print("\nIniciando Seleção Determinística de Tarefas (First Improvement)...")
+    best_solution = res
+    best_sol = res["sequence_normalized"]
+    best_sol_makespan = best_solution["C_max"]
+    
+    improved = False
+    
+    best_insertion_sol = None
+    best_insertion_makespan = float('inf')
+
+    iterations = 0
+
+    while best_sol_makespan < best_insertion_makespan:
+        iterations += 1
+        
+        for job in best_sol:
+            # Remove a tarefa da sequência
+            new_sol = [j for j in best_sol if j != job]
+            
+            # Tenta inserir a tarefa em todas as posições possíveis
+            for insert_index in range(len(new_sol) + 1):
+                trial_sol = new_sol[:insert_index] + [job] + new_sol[insert_index:]
+                trial_solution = verify_solution(inst, trial_sol, verbose=False)
+                
+                if trial_solution["feasible"] and trial_solution["C_max"] < best_insertion_makespan:
+                    best_insertion_makespan = trial_solution["C_max"]
+                    best_insertion_sol = trial_sol
+                    best_insertion_solution = trial_solution            
+                    break  # Sai do loop ao encontrar a primeira melhoria
+            
+            if best_insertion_sol is not None:
+                break  # Sai do loop externo se uma melhoria foi encontrada
+        
+        if best_insertion_sol is not None and best_insertion_makespan < best_sol_makespan:
+            best_sol = best_insertion_sol
+            best_solution = best_insertion_solution
+            best_sol_makespan = best_insertion_makespan
+            print(f"Perturbação realizada: job movido para melhor posição, tentativa {iterations}")
+            improved = True
+    
+    print("Perturbação Insert Block Best finalizada.")
+    print("Número de tentativas:", iterations)
+    
+    return best_sol, best_solution, improved   
+
+def deterministic_first_block_selection(inst: Instance, res: List[int]) -> List[int]:
+    
+     print("\nIniciando Seleção Determinística de Blocos (First Improvement)...")
+     best_solution = res
+     best_sol = res["sequence_normalized"]
+     best_sol_makespan = best_solution["C_max"]
+     
+     improved = False
+     
+     best_insertion_sol = None
+     best_insertion_makespan = float('inf')
+    
+     iterations = 0
+    
+     while best_sol_makespan < best_insertion_makespan:
+          iterations += 1
+          
+          for block_size in range(2, int(0.4 * len(best_sol)) + 1):
+                for start_index in range(len(best_sol) - block_size + 1):
+                 block = best_sol[start_index:start_index + block_size]
+                 
+                 # Remove o bloco da sequência
+                 new_sol = best_sol[:start_index] + best_sol[start_index + block_size:]
+                 
+                 # Tenta inserir o bloco em todas as posições possíveis
+                 for insert_index in range(len(new_sol) + 1):
+                      trial_sol = new_sol[:insert_index] + block + new_sol[insert_index:]
+                      trial_solution = verify_solution(inst, trial_sol, verbose=False)
+                      
+                      if trial_solution["feasible"] and trial_solution["C_max"] < best_insertion_makespan:
+                            best_insertion_makespan = trial_solution["C_max"]
+                            best_insertion_sol = trial_sol
+                            best_insertion_solution = trial_solution            
+                            break  # Sai do loop ao encontrar a primeira melhoria
+                
+                 if best_insertion_sol is not None:
+                     break  # Sai do loop externo se uma melhoria foi encontrada
+          
+          if best_insertion_sol is not None and best_insertion_makespan < best_sol_makespan:
+                best_sol = best_insertion_sol
+                best_solution = best_insertion_solution
+                best_sol_makespan = best_insertion_makespan
+                print(f"Perturbação realizada: bloco movido para melhor posição, tentativa {iterations}")
+                improved = True
+                
+     print("Perturbação Insert Block Best finalizada.")
+     print("Número de tentativas:", iterations)
+     
+     return best_sol, best_solution, improved
     
 def double_job_exchange(inst: Instance, res: List[int]) -> Tuple[List[int], Dict]:
     print("\nIniciando Job Exchange...")
