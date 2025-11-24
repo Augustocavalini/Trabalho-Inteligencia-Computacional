@@ -2,6 +2,7 @@ import Modelagem as md
 import view as vw
 import construtivo as ct
 import busca_local as bl
+import metaheuristics as mh
 import pandas as pd  # <- novo import
 import time
 
@@ -80,10 +81,11 @@ def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> No
         return current_res
 
     # 4) Fases de busca local (cada fase começa do melhor resultado até então)
-    best_res = start_res
+    best_res_bl = start_res
+    best_res_vns = start_res
 
     # JOB EXCHANGE
-    best_res = run_stagnation_loop("JE", bl.bl_job_exchange, best_res)
+    best_res_bl = run_stagnation_loop("JE", bl.bl_job_exchange, best_res_bl)
 
     # # BLOCK THROW
     # best_res = run_stagnation_loop("BT", bl.insert_block_random, best_res)
@@ -98,9 +100,23 @@ def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> No
     # print(f"\nParâmetros para IBB: min_block_size=2, max_block_size={int(inst.n*0.4)}")
     # best_res = run_stagnation_loop("IBB", bl.insert_block_best, best_res, params={"min_block_size": 2, "max_block_size": int(inst.n*0.4)})
 
-    print(f"\nFinal da instância {file_path} — Melhor C_max = {best_res['C_max']:.3f}")
+    # 5) VNS a partir da melhor sequência atual (se disponível)
+    if "sequence_normalized" in best_res_vns:
+        try:
+            vns_res = mh.VNS(inst, best_res_vns, max_iter=200, max_stagnation=50, verbose=False)
+            if vns_res["C_max"] < best_res_vns["C_max"]:
+                print(f"[VNS] Melhoria: {best_res_vns['C_max']:.3f} -> {vns_res['C_max']:.3f}")
+                best_res_vns = vns_res
+            else:
+                print(f"[VNS] Sem melhoria (C_max = {vns_res['C_max']:.3f})")
+        except Exception as e:
+            print(f"[VNS] Erro ao executar: {e}")
+    else:
+        print("[VNS] sequence_normalized ausente; VNS não executado.")
 
-    return best_res["C_max"]
+    print(f"\nFinal da instância {file_path} — Melhor C_max = {best_res_vns['C_max']:.3f}")
+
+    return best_res_vns["C_max"], best_res_bl["C_max"]
 
 
 if __name__ == "__main__":
@@ -129,16 +145,15 @@ if __name__ == "__main__":
         for it in range(num_it):
 
             start_time = time.time()
-            result = run_simulations_for_instance(file_name)
+            best_res_vns, best_res_bl = run_simulations_for_instance(file_name)
             end_time = time.time()
             elapsed_time = end_time - start_time
 
-            sum_results += result
+            sum_results += best_res_vns
             sum_time += elapsed_time
 
-            if it == 0 or result < best_result:
-                best_result = result
-
+            if it == 0 or best_res_vns < best_result:
+                best_result = best_res_vns
         mean_result = sum_results / num_it
         mean_time = sum_time / num_it
         diff_best = ((best_result - best_result_lit) / best_result_lit) * 100

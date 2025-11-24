@@ -593,3 +593,47 @@ def double_job_insert(inst: Instance, res: List[int]) -> Tuple[List[int], Dict]:
     print("Número de iterações:", iterations)
     
     return  best_sol, best_solution, improved
+
+
+def deterministic_2_opt_exchange(inst: Instance, res: List[int]) -> Tuple[List[int], Dict]:
+    print("\nIniciando 2-Opt Exchange...")
+    
+    best_solution = res
+    best_sol = res["sequence_normalized"]    
+    
+    best_makespan = best_solution["C_max"]
+    improved = False
+
+    max_stagnation = 1000  # Define um número máximo de iterações para evitar loops infinitos
+    stagnation_counter = 0
+    iterations = 0
+
+    while iterations < max_stagnation:
+
+        for i in range(len(best_sol) - 1):
+            for j in range(i + 1, len(best_sol)):
+                
+                new_sol = best_sol[:i] + best_sol[i:j+1][::-1] + best_sol[j+1:]
+                
+                new_solution = verify_solution(inst, new_sol, verbose=False)
+                if new_solution["feasible"]:
+                    new_makespan = new_solution["C_max"]
+                    
+                    if new_makespan < best_makespan:
+                        best_sol = new_sol
+                        best_solution = new_solution
+                        best_makespan = new_makespan
+                        improved = True
+                        print(f"Melhoria encontrada: novo makespan {new_makespan} invertendo segmento entre posições {i} e {j}, tentativa {stagnation_counter}")
+                        stagnation_counter = 0
+
+                    
+                    else:
+                        stagnation_counter += 1
+        iterations += 1
+                
+    
+    print("Busca Local finalizada. Achou um ótimo local.")
+    print("Número de iterações:", iterations)
+    
+    return  best_sol, best_solution, improved

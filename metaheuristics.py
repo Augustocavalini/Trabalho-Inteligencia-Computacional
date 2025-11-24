@@ -100,6 +100,7 @@ def VNS(inst: Instance, initial_sequence: List[int], max_iter: int = 500, max_st
         for neigh_index, neigh_func in enumerate(neighborhoods):
             # Shaking: intensidade pode crescer com o índice da vizinhança
             shaken_seq = _shake_sequence(best_sol["sequence_normalized"], strength = 3)
+            # shaken_seq = _shake_sequence(best_sol["sequence_normalized"], strength=neigh_index + 1)
             shaken_eval = verify_solution(inst, shaken_seq, verbose=False)
             if not shaken_eval["feasible"]:
                 continue  # ignora sequência infactível
