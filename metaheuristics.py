@@ -21,6 +21,12 @@ def _wrap_deterministic_first_block_selection(inst: Instance, sol_dict: Dict) ->
 def _wrap_deterministic_job_selection(inst: Instance, sol_dict: Dict) -> Dict:
     return bl.deterministic_job_selection(inst, sol_dict)[1]
 
+def _wrap_deterministic_2_opt_exchange(inst: Instance, sol_dict: Dict) -> Dict:
+    return bl.deterministic_2_opt_exchange(inst, sol_dict)[1]
+
+def _wrap_deterministic_job_exchange(inst: Instance, sol_dict: Dict) -> Dict:
+    return bl.deterministic_job_exchange(inst, sol_dict)[1]
+
 # def _wrap_double_job_insert(inst: Instance, sol_dict: Dict) -> Dict:
 #     return bl.double_job_insert(inst, sol_dict)[1]
 
@@ -30,7 +36,8 @@ DEFAULT_NEIGHBORHOODS: List[Callable[[Instance, Dict], Dict]] = [
     _wrap_deterministic_first_job_selection,
     _wrap_deterministic_first_block_selection,
     _wrap_deterministic_job_selection,
-    # _wrap_double_job_insert,
+    _wrap_deterministic_2_opt_exchange,
+    _wrap_deterministic_job_exchange,
 ]
 
 
@@ -98,6 +105,7 @@ def VNS(inst: Instance, initial_sequence: List[int], max_iter: int = 500, max_st
 
         # Explora cada vizinhança na ordem
         for neigh_index, neigh_func in enumerate(neighborhoods):
+            print(f"[VNS] Iter {iteration} Tentando vizinhança {neigh_index}...")
             # Shaking: intensidade pode crescer com o índice da vizinhança
             shaken_seq = _shake_sequence(best_sol["sequence_normalized"], strength = 3)
             # shaken_seq = _shake_sequence(best_sol["sequence_normalized"], strength=neigh_index + 1)

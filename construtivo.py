@@ -12,56 +12,67 @@ import view as vw
 # ******************************** MÉTODOS DE ATUALIZAÇÃO E ORDENAÇÃO ********************************
 
 # dado que um job já foi colocado na solução, atualiza uma tabela de earliest start times, com o tempo em que cada próximo job pode começar 
-def update_earliest_start_times(inst: Instance, sol_partial: List[int], est_tuples: List[Tuple[int, float]]) -> List[Tuple[int, float]]:
+def update_earliest_start_times(inst: Instance, sol_partial: List[int], est_tuples: List[Tuple[int, float]], verbose: bool = False) -> List[Tuple[int, float]]:
     """
     Atualiza a tabela de earliest start times representada como lista de tuplas
     (job_idx, est_value). Retorna a lista ordenada por est_value (asc).
     """
-    print("\n=== Atualizando earliest start times (tuplas) ===")
-    print(f"Solução parcial: {sol_partial}")
-    print(f"EST (tuplas) atual: {est_tuples}")
+    if verbose:
+        print("\n=== Atualizando earliest start times (tuplas) ===")
+        print(f"Solução parcial: {sol_partial}")
+        print(f"EST (tuplas) atual: {est_tuples}")
 
     n = inst.n
     # converte para dicionário para facilitar atualizações
     est_map = {job: val for job, val in est_tuples}
     last_job = sol_partial[-1]
-    print(f"Último job colocado: {last_job}, EST[{last_job}] = {est_map.get(last_job)}")
+    if verbose:
+        print(f"Último job colocado: {last_job}, EST[{last_job}] = {est_map.get(last_job)}")
 
     for j in range(n):
         if j in sol_partial:
-            print(f"\nJob {j}: já está na solução, pulando...")
+            if verbose:
+                print(f"\nJob {j}: já está na solução, pulando...")
             continue
 
-        print(f"\nProcessando job {j}:")
+        if verbose:
+            print(f"\nProcessando job {j}:")
         old = est_map.get(j, 0.0)
 
         # setup após último job colocado
         setup_start = est_map[last_job] + inst.p[last_job] + inst.s[last_job][j]
-        print(f"  Setup após job {last_job}: EST[{last_job}]({est_map[last_job]}) + p[{last_job}]({inst.p[last_job]}) + s[{last_job}][{j}]({inst.s[last_job][j]}) = {setup_start}")
+        if verbose:
+            print(f"  Setup após job {last_job}: EST[{last_job}]({est_map[last_job]}) + p[{last_job}]({inst.p[last_job]}) + s[{last_job}][{j}]({inst.s[last_job][j]}) = {setup_start}")
         est_map[j] = max(est_map.get(j, 0.0), setup_start)
-        print(f"  EST após setup (temporário) = {est_map[j]}")
+        if verbose:
+            print(f"  EST após setup (temporário) = {est_map[j]}")
 
         # atrasos de precedência de todos os jobs já na solução
         for i in sol_partial:
             if inst.d[i][j] != -1:
                 prec_start = est_map[i] + inst.p[i] + inst.d[i][j]
-                print(f"  Precedência {i}->{j}: EST[{i}]({est_map[i]}) + p[{i}]({inst.p[i]}) + d[{i}][{j}]({inst.d[i][j]}) = {prec_start}")
+                if verbose:
+                    print(f"  Precedência {i}->{j}: EST[{i}]({est_map[i]}) + p[{i}]({inst.p[i]}) + d[{i}][{j}]({inst.d[i][j]}) = {prec_start}")
                 est_map[j] = max(est_map[j], prec_start)
-                print(f"  EST após precedência = {est_map[j]}")
+                if verbose:
+                    print(f"  EST após precedência = {est_map[j]}")
 
         if est_map[j] != old:
-            print(f"  EST final de {j} atualizado: {old} -> {est_map[j]}")
+            if verbose:
+                print(f"  EST final de {j} atualizado: {old} -> {est_map[j]}")
         else:
-            print(f"  EST final de {j} mantido: {est_map[j]}")
+            if verbose:
+                print(f"  EST final de {j} mantido: {est_map[j]}")
 
     # constroi lista ordenada por valor (ascendente)
     # est_updated = sorted([(job, est_map[job]) for job in range(n)], key=lambda x: x[1])
     est_updated = [(job, est_map[job]) for job in range(n)]
-    print(f"\nEST final atualizado (tuplas ordenadas): {est_updated}")
+    if verbose:
+        print(f"\nEST final atualizado (tuplas ordenadas): {est_updated}")
     return est_updated
 
 # dado que um job já foi colocado na solução, atualiza uma tabela de earliest finish times, com o tempo em que cada próximo job vai terminar
-def update_earliest_finish_times(inst: Instance, sol_partial: List[int], eft_tuples: List[Tuple[int, float]]) -> List[Tuple[int, float]]:
+def update_earliest_finish_times(inst: Instance, sol_partial: List[int], eft_tuples: List[Tuple[int, float]], verbose: bool = False) -> List[Tuple[int, float]]:
     """
     Atualiza a tabela de earliest finish times representada como lista de tuplas
     (job_idx, eft_value). Retorna a lista ordenada por eft_value (asc).
@@ -94,9 +105,11 @@ def update_earliest_finish_times(inst: Instance, sol_partial: List[int], eft_tup
         for i in sol_partial:
             if inst.d[i][j] != -1:
                 prec_finish = eft_map[i] + inst.d[i][j] + inst.p[j]
-                print(f"  Precedência {i}->{j}: EFT[{i}]({eft_map[i]}) + p[{j}]({inst.p[j]}) + d[{i}][{j}]({inst.d[i][j]}) + p[{j}]({inst.p[j]}) = {prec_finish}")
+                if verbose:
+                    print(f"  Precedência {i}->{j}: EFT[{i}]({eft_map[i]}) + p[{j}]({inst.p[j]}) + d[{i}][{j}]({inst.d[i][j]}) + p[{j}]({inst.p[j]}) = {prec_finish}")
                 eft_map[j] = max(eft_map[j], prec_finish)
-                print(f"  EFT após precedência = {eft_map[j]}")
+                if verbose:
+                    print(f"  EFT após precedência = {eft_map[j]}")
 
         # if eft_map[j] != old:
         #     print(f"  EFT final de {j} atualizado: {old} -> {eft_map[j]}")
@@ -110,68 +123,81 @@ def update_earliest_finish_times(inst: Instance, sol_partial: List[int], eft_tup
     return eft_updated
 
 # ??
-def update_latest_finish_times(inst: Instance, sol_partial: List[int], lft_tuples: List[Tuple[int, float]]) -> List[Tuple[int, float]]:
+def update_latest_finish_times(inst: Instance, sol_partial: List[int], lft_tuples: List[Tuple[int, float]], verbose: bool = False) -> List[Tuple[int, float]]:
     """
     Atualiza a tabela de latest finish times representada como lista de tuplas
     (job_idx, lft_value). Retorna a lista ordenada por lft_value (asc).
     """
-    print("\n=== Atualizando latest finish times (tuplas) ===")
-    print(f"Solução parcial: {sol_partial}")
-    print(f"LFT (tuplas) atual: {lft_tuples}")
+    if verbose:
+        print("\n=== Atualizando latest finish times (tuplas) ===")
+        print(f"Solução parcial: {sol_partial}")
+        print(f"LFT (tuplas) atual: {lft_tuples}")
 
     n = inst.n
     lft_map = {job: val for job, val in lft_tuples}
     last_job = sol_partial[-1]
-    print(f"Último job colocado: {last_job}, LFT[{last_job}] = {lft_map.get(last_job)}")
+    if verbose:
+        print(f"Último job colocado: {last_job}, LFT[{last_job}] = {lft_map.get(last_job)}")
 
     for j in range(n):
         if j in sol_partial:
-            print(f"\nJob {j}: já está na solução, pulando...")
+            if verbose:
+                print(f"\nJob {j}: já está na solução, pulando...")
             continue
 
-        print(f"\nProcessando job {j}:")
+        if verbose:
+            print(f"\nProcessando job {j}:")
         old = lft_map.get(j, 0.0)
 
         # consideração de setup (termino possível antes do last_job)
         setup_finish = lft_map[last_job] + inst.p[j] + inst.s[last_job][j]
-        print(f"  Setup antes de job {last_job}: LFT[{last_job}]({lft_map[last_job]}) + p[{j}]({inst.p[j]}) + s[{last_job}][{j}]({inst.s[last_job][j]}) = {setup_finish}")
+        if verbose:
+            print(f"  Setup antes de job {last_job}: LFT[{last_job}]({lft_map[last_job]}) + p[{j}]({inst.p[j]}) + s[{last_job}][{j}]({inst.s[last_job][j]}) = {setup_finish}")
         lft_map[j] = max(lft_map.get(j, 0.0), setup_finish)
-        print(f"  LFT após setup (temporário) = {lft_map[j]}")
+        if verbose:
+            print(f"  LFT após setup (temporário) = {lft_map[j]}")
 
         # atrasos de precedência (restrições que impõem um limite superior)
         for i in sol_partial:
             if inst.d[i][j] != -1:
                 prec_finish = lft_map[i] + inst.p[j] + inst.d[i][j]
-                print(f"  Precedência {i}->{j}: LFT[{i}]({lft_map[i]}) + p[{j}]({inst.p[j]}) + d[{i}][{j}]({inst.d[i][j]}) = {prec_finish}")
+                if verbose:
+                    print(f"  Precedência {i}->{j}: LFT[{i}]({lft_map[i]}) + p[{j}]({inst.p[j]}) + d[{i}][{j}]({inst.d[i][j]}) = {prec_finish}")
                 lft_map[j] = max(lft_map[j], prec_finish)
-                print(f"  LFT após precedência = {lft_map[j]}")
+                if verbose:
+                    print(f"  LFT após precedência = {lft_map[j]}")
 
         if lft_map[j] != old:
-            print(f"  LFT final de {j} atualizado: {old} -> {lft_map[j]}")
+            if verbose:
+                print(f"  LFT final de {j} atualizado: {old} -> {lft_map[j]}")
         else:
-            print(f"  LFT final de {j} mantido: {lft_map[j]}")
+            if verbose:
+                print(f"  LFT final de {j} mantido: {lft_map[j]}")
 
     # constroi lista ordenada por valor (ascendente)
     # lft_updated = sorted([(job, lft_map[job]) for job in range(n)], key=lambda x: x[1])
     lft_updated = [(job, lft_map[job]) for job in range(n)]
-    print(f"\nLFT final atualizado (tuplas ordenadas): {lft_updated}")
+    if verbose:
+        print(f"\nLFT final atualizado (tuplas ordenadas): {lft_updated}")
     return lft_updated
 
 
-def get_candidates_ordered(inst: Instance, sol_partial: List[int], list_tuples: List[Tuple[int, float]]) -> List[Tuple[int, float]]:
+def get_candidates_ordered(inst: Instance, sol_partial: List[int], list_tuples: List[Tuple[int, float]], verbose=False) -> List[Tuple[int, float]]:
     """
     Obtém a lista de candidatos a serem agendados (jobs não na solução parcial)
     ordenados pelo valor associado na lista de tuplas (job_idx, value).
     """
-    print("\n=== Obtendo candidatos ordenados ===")
-    print(f"Solução parcial: {sol_partial}")
-    print(f"Lista (tuplas) recebida: {list_tuples}")
+    if verbose:
+        print("\n=== Obtendo candidatos ordenados ===")
+        print(f"Solução parcial: {sol_partial}")
+        print(f"Lista (tuplas) recebida: {list_tuples}")
 
     lft_map = {job: val for job, val in list_tuples}
     candidates = [(job, lft_map[job]) for job in range(inst.n) if job not in sol_partial]
     candidates.sort(key=lambda x: x[1])  # ordena por LFT
-
-    print(f"Candidatos ordenados: {candidates}")
+    
+    if verbose:
+        print(f"Candidatos ordenados: {candidates}")
     return candidates
 
 # ******************************** MÉTODOS CONSTRUTIVOS GERAIS ********************************
@@ -182,7 +208,8 @@ def greedy_constructive_build(
         update_scores: callable, 
         initial_scores: list[tuple[int, float]], 
         initial_seq: Optional[List[int]] = None, 
-        plot_title: str | None = None
+        plot_title: str | None = None,
+        verbose: bool = False
 ):
     """
     Constrói uma solução viável completa com uma estratégia genérica de ordenação (EFT, EST, etc)
@@ -222,7 +249,7 @@ def greedy_constructive_build(
 
     # valida prefixo inicial (se houver)
     if sol:
-        res0 = md.verify_solution(inst, sol, verbose=True)
+        res0 = md.verify_solution(inst, sol)
         if not res0.get("feasible", False):
             return sol, {
                 "feasible": False,
@@ -235,9 +262,10 @@ def greedy_constructive_build(
 
     # loop de construção até tentar alocar todos os jobs
     while len(sol) < inst.n:
-        candidates = get_candidates_ordered(inst, sol, scores)
+        candidates = get_candidates_ordered(inst, sol, scores, verbose=verbose)
         if not candidates:
-            print("[constructive_build] Sem candidatos disponíveis. Interrompendo.")
+            if verbose:
+                print("[constructive_build] Sem candidatos disponíveis. Interrompendo.")
             break
 
         chosen = None
@@ -245,13 +273,14 @@ def greedy_constructive_build(
             if j in sol:
                 continue
             trial = sol + [j]
-            res_try = md.verify_solution(inst, trial, verbose=True)
+            res_try = md.verify_solution(inst, trial)
             if res_try.get("feasible", False):
                 chosen = j
                 break
 
         if chosen is None:
-            print("[constructive_build] Nenhum candidato mantém viabilidade neste passo. Interrompendo.")
+            if verbose:
+                print("[constructive_build] Nenhum candidato mantém viabilidade neste passo. Interrompendo.")
             break
 
         sol.append(chosen)
@@ -259,14 +288,15 @@ def greedy_constructive_build(
         scores = update_scores(inst, sol, scores)
 
     # verificação final
-    res = md.verify_solution(inst, sol, verbose=True)
+    res = md.verify_solution(inst, sol)
 
     # plot opcional
     if plot_title is not None:
         try:
             vw.plot_gantt(inst, res, title=plot_title)
         except Exception as e:
-            print(f"[constructive_build] Falha ao plotar Gantt: {e}")
+            if verbose:
+                print(f"[constructive_build] Falha ao plotar Gantt: {e}")
     return sol, res
 
 
@@ -279,7 +309,8 @@ def randomized_greedy_constructive_build(
     plot_title: str | None = None,
     alpha: float = 0.0,
     rcl_size: Optional[int] = None,
-    seed: Optional[int] = None
+    seed: Optional[int] = None,
+    verbose: bool = False
 ):
     """
     Versão gulosa randomizada do construtivo.
@@ -299,7 +330,7 @@ def randomized_greedy_constructive_build(
 
     # valida prefixo inicial (se houver)
     if sol:
-        res0 = md.verify_solution(inst, sol, verbose=True)
+        res0 = md.verify_solution(inst, sol)
         if not res0.get("feasible", False):
             return sol, {
                 "feasible": False,
@@ -314,7 +345,8 @@ def randomized_greedy_constructive_build(
         # filtra candidatos não-agendados mantendo a ordem
         candidates = [(j, v) for j, v in candidates if j not in sol]
         if not candidates:
-            print("[rand_greedy] Sem candidatos disponíveis. Interrompendo.")
+            if verbose:
+                print("[rand_greedy] Sem candidatos disponíveis. Interrompendo.")
             break
 
         # Construir RCL
@@ -337,7 +369,7 @@ def randomized_greedy_constructive_build(
         chosen = None
         for j, _v in rcl_shuffled:
             trial = sol + [j]
-            res_try = md.verify_solution(inst, trial, verbose=True)
+            res_try = md.verify_solution(inst, trial)
             if res_try.get("feasible", False):
                 chosen = j
                 break
@@ -348,25 +380,27 @@ def randomized_greedy_constructive_build(
                 if j in sol:
                     continue
                 trial = sol + [j]
-                res_try = md.verify_solution(inst, trial, verbose=True)
+                res_try = md.verify_solution(inst, trial)
                 if res_try.get("feasible", False):
                     chosen = j
                     break
 
         if chosen is None:
-            print("[rand_greedy] Nenhum candidato mantém viabilidade neste passo. Interrompendo.")
+            if verbose:
+                print("[rand_greedy] Nenhum candidato mantém viabilidade neste passo. Interrompendo.")
             break
 
         sol.append(chosen)
         scores = update_scores(inst, sol, scores)
 
-    res = md.verify_solution(inst, sol, verbose=True)
+    res = md.verify_solution(inst, sol)
 
     # plot opcional
     if plot_title is not None:
         try:
             vw.plot_gantt(inst, res, title=plot_title)
         except Exception as e:
-            print(f"[constructive_build] Falha ao plotar Gantt: {e}")
+            if verbose:
+                print(f"[constructive_build] Falha ao plotar Gantt: {e}")
     return sol, res
 

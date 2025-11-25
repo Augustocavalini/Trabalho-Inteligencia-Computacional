@@ -188,7 +188,7 @@ def verify_solution_ori(inst: Instance, seq: List[int]) -> Dict:
 
 
 
-def verify_solution(inst, seq: List[int], verbose: bool) -> Dict:
+def verify_solution(inst, seq: List[int], verbose: bool = False) -> Dict:
     """
     Verifica (parcial ou total) uma sequência de jobs 0-based para 1 | s_ij, prec(d_ij) | Cmax.
 
