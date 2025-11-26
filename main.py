@@ -30,7 +30,7 @@ def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> No
         update_scores=ct.update_earliest_start_times,
         initial_scores=initial_est,
         initial_seq=None,
-        # plot_title="Gantt — Construtivo por EST"
+        plot_title="Gantt — Construtivo por EST"
     )
 
     # 2) Construtivo por EFT
@@ -41,14 +41,14 @@ def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> No
         update_scores=ct.update_earliest_finish_times,
         initial_scores=initial_eft,
         initial_seq=None,
-        # plot_title="Gantt — Construtivo por EFT"
+        plot_title="Gantt — Construtivo por EFT"
     )
     
     # 3) Construtivo por Precedence Sublist e greedy insertion
     precedence_sol, res_precedence,  missing_jobs = ct.create_precedence_sublist(inst=inst)
     sol_precedence, res_precedence = ct.greedy_constructive_insert(
-        inst=inst, sequence=precedence_sol, missing_jobs=missing_jobs
-        # plot_title="Gantt — Construtivo por Precedence Sublist"
+        inst=inst, sequence=precedence_sol, missing_jobs=missing_jobs,
+        plot_title="Gantt — Construtivo por Precedence Sublist"
     )
     
     print(f"Solução por Precedence Sublist: C_max = {res_precedence['C_max']:.3f}")
@@ -133,6 +133,11 @@ def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> No
 
     print(f"\nFinal da instância {file_path} — Melhor C_max = {best_res_vns['C_max']:.3f}")
 
+    try:
+        vw.plot_gantt(inst, best_res_vns, title="Gantt — Solução Final VNS")
+    except Exception as e:
+            print(f"[constructive_build] Falha ao plotar Gantt: {e}")
+
     return best_res_vns["C_max"]
 
 
@@ -147,7 +152,8 @@ if __name__ == "__main__":
     # Defina abaixo quais índices (linhas) deseja processar.
     # Exemplo para só a linha 52: rows_to_run = [52]
     # Para todas: rows_to_run = None
-    rows_to_run = None # Ajuste conforme necessidade
+    # rows_to_run = None # Ajuste conforme necessidade
+    rows_to_run = [3] # Ajuste conforme necessidade
 
     if rows_to_run is None:
         indices = list(range(quantidade_inst_para_testar))
