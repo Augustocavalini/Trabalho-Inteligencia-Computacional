@@ -4,8 +4,8 @@ from typing import List, Tuple, Dict, Optional
 import networkx as nx
 import random
 
-import Modelagem as md
-from Modelagem import Instance
+import modelagem as md
+from modelagem import Instance
 
 import view as vw
 
@@ -121,65 +121,6 @@ def update_earliest_finish_times(inst: Instance, sol_partial: List[int], eft_tup
     eft_updated = [(job, eft_map[job]) for job in range(n)]
     # print(f"\nEFT final atualizado (tuplas ordenadas): {eft_updated}")
     return eft_updated
-
-# ??
-def update_latest_finish_times(inst: Instance, sol_partial: List[int], lft_tuples: List[Tuple[int, float]], verbose: bool = False) -> List[Tuple[int, float]]:
-    """
-    Atualiza a tabela de latest finish times representada como lista de tuplas
-    (job_idx, lft_value). Retorna a lista ordenada por lft_value (asc).
-    """
-    if verbose:
-        print("\n=== Atualizando latest finish times (tuplas) ===")
-        print(f"Solução parcial: {sol_partial}")
-        print(f"LFT (tuplas) atual: {lft_tuples}")
-
-    n = inst.n
-    lft_map = {job: val for job, val in lft_tuples}
-    last_job = sol_partial[-1]
-    if verbose:
-        print(f"Último job colocado: {last_job}, LFT[{last_job}] = {lft_map.get(last_job)}")
-
-    for j in range(n):
-        if j in sol_partial:
-            if verbose:
-                print(f"\nJob {j}: já está na solução, pulando...")
-            continue
-
-        if verbose:
-            print(f"\nProcessando job {j}:")
-        old = lft_map.get(j, 0.0)
-
-        # consideração de setup (termino possível antes do last_job)
-        setup_finish = lft_map[last_job] + inst.p[j] + inst.s[last_job][j]
-        if verbose:
-            print(f"  Setup antes de job {last_job}: LFT[{last_job}]({lft_map[last_job]}) + p[{j}]({inst.p[j]}) + s[{last_job}][{j}]({inst.s[last_job][j]}) = {setup_finish}")
-        lft_map[j] = max(lft_map.get(j, 0.0), setup_finish)
-        if verbose:
-            print(f"  LFT após setup (temporário) = {lft_map[j]}")
-
-        # atrasos de precedência (restrições que impõem um limite superior)
-        for i in sol_partial:
-            if inst.d[i][j] != -1:
-                prec_finish = lft_map[i] + inst.p[j] + inst.d[i][j]
-                if verbose:
-                    print(f"  Precedência {i}->{j}: LFT[{i}]({lft_map[i]}) + p[{j}]({inst.p[j]}) + d[{i}][{j}]({inst.d[i][j]}) = {prec_finish}")
-                lft_map[j] = max(lft_map[j], prec_finish)
-                if verbose:
-                    print(f"  LFT após precedência = {lft_map[j]}")
-
-        if lft_map[j] != old:
-            if verbose:
-                print(f"  LFT final de {j} atualizado: {old} -> {lft_map[j]}")
-        else:
-            if verbose:
-                print(f"  LFT final de {j} mantido: {lft_map[j]}")
-
-    # constroi lista ordenada por valor (ascendente)
-    # lft_updated = sorted([(job, lft_map[job]) for job in range(n)], key=lambda x: x[1])
-    lft_updated = [(job, lft_map[job]) for job in range(n)]
-    if verbose:
-        print(f"\nLFT final atualizado (tuplas ordenadas): {lft_updated}")
-    return lft_updated
 
 
 def get_candidates_ordered(inst: Instance, sol_partial: List[int], list_tuples: List[Tuple[int, float]], verbose=False) -> List[Tuple[int, float]]:
@@ -404,3 +345,128 @@ def randomized_greedy_constructive_build(
                 print(f"[constructive_build] Falha ao plotar Gantt: {e}")
     return sol, res
 
+# ******************************** MÉTODO INSERT GULOSO ********************************
+
+def create_precedence_sublist(
+    inst: Instance,
+    score: Optional[List[Tuple[int, float]]] = None,
+    verbose: bool = False
+) -> List[int]:
+    """
+    Retorna uma solução parcial contendo todos os jobs que participam de
+    alguma relação de precedência com os jobs já em sol_partial, organizada
+    pelo critério de earliest start time (EST) ou earliest finish time (EFT).
+
+    Parâmetros
+    ----------
+    inst : Instance
+    use_eft : se True usa EFT, senão usa EST
+    """
+    if verbose:
+        print("\n=== Atualizando sublista de precedências ===")
+
+    # identifica todos os jobs que participam de alguma precedência
+    involved = set()
+    n = inst.n
+    for i in range(n):
+        for j in range(n):
+            if inst.d[i][j] != -1:
+                involved.add(i)
+                involved.add(j)
+                    
+    missing_jobs = [j for j in range(n) if j not in involved]
+
+    scores = [(j, 0) for j in range(inst.n)]
+
+    # inicia prefixo
+    sol = []
+
+    # loop de construção até tentar alocar todos os jobs
+    while len(sol) < len(involved):
+        candidates = get_candidates_ordered(inst, sol, scores, verbose=verbose)
+        if not candidates:
+            if verbose:
+                print("[constructive_build] Sem candidatos disponíveis. Interrompendo.")
+            break
+
+        chosen = None
+        for j, _val in candidates:
+            if j in sol or j not in involved:
+                continue
+
+            trial = sol + [j]
+            res_try = md.verify_solution(inst, trial)
+            if res_try.get("feasible", False):
+                chosen = j
+                break
+
+        if chosen is None:
+            if verbose:
+                print("[constructive_build] Nenhum candidato mantém viabilidade neste passo. Interrompendo.")
+            break
+
+        sol.append(chosen)
+        # atualiza scores com o prefixo corrente
+        scores = update_earliest_start_times(inst, sol, scores)
+
+    # verificação final
+    res = md.verify_solution(inst, sol)
+
+    return sol, res, missing_jobs
+
+
+def greedy_constructive_insert(
+    inst: Instance,
+    sequence: List[int],
+    missing_jobs: List[int],
+    verbose: bool = False
+) -> List[int]:
+    """
+    Insere, de forma gulosa, todos os jobs em missing_jobs na sequência parcial 'sequence'.
+    Em cada iteração:
+      - testa inserir cada job ainda faltante em todas as posições possíveis da sequência;
+      - avalia o makespan (C_max) de cada sequência candidata com md.verify_solution;
+      - escolhe o par (job, posição) que gera o menor C_max viável;
+      - fixa essa inserção na sequência.
+    Repete até que todos os jobs sejam inseridos ou não seja possível manter viabilidade.
+    """
+    sol = sequence.copy()
+    remaining = missing_jobs.copy()
+
+    while remaining:
+        best_job = None
+        best_pos = None
+        best_cmax = float("inf")
+
+        for j in remaining:
+            # tenta inserir o job j em todas as posições possíveis
+            for pos in range(len(sol) + 1):
+                cand = sol[:pos] + [j] + sol[pos:]
+                res = md.verify_solution(inst, cand)
+                if not res.get("feasible", False):
+                    continue
+
+                cmax = res.get("C_max", float("inf"))
+                if cmax < best_cmax:
+                    best_cmax = cmax
+                    best_job = j
+                    best_pos = pos
+
+        # se não encontrou nenhuma inserção viável para nenhum job restante, encerra
+        if best_job is None:
+            if verbose:
+                print("[greedy_constructive_insert] Nenhuma inserção viável encontrada para os jobs restantes.")
+            break
+
+        # fixa melhor inserção encontrada
+        sol = sol[:best_pos] + [best_job] + sol[best_pos:]
+        remaining.remove(best_job)
+
+        if verbose:
+            print(f"Inserido job {best_job} na posição {best_pos}, C_max = {best_cmax}")
+            print(f"Solução atual: {sol}")
+            print(f"Jobs restantes: {remaining}")
+            
+    res = md.verify_solution(inst, sol)
+
+    return sol, res

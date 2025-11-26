@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import List, Tuple, Dict, Optional
 import networkx as nx
 
-from Modelagem import Instance
+from modelagem import Instance
 
 def plot_gantt(inst: Instance, res: Dict, title: Optional[str] = None) -> None:
     """

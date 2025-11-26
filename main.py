@@ -1,8 +1,8 @@
-import Modelagem as md
+import modelagem as md
 import view as vw
 import construtivo as ct
 import busca_local as bl
-import metaheuristics as mh
+import metaheuristica as mh
 import pandas as pd  # <- novo import
 import time
 
@@ -43,6 +43,19 @@ def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> No
         initial_seq=None,
         # plot_title="Gantt — Construtivo por EFT"
     )
+    
+    # 3) Construtivo por Precedence Sublist e greedy insertion
+    precedence_sol, res_precedence,  missing_jobs = ct.create_precedence_sublist(inst=inst)
+    sol_precedence, res_precedence = ct.greedy_constructive_insert(
+        inst=inst, sequence=precedence_sol, missing_jobs=missing_jobs
+    )
+    
+    print(f"Solução por Precedence Sublist: C_max = {res_precedence['C_max']:.3f}")
+
+    print(f"\nComparação das soluções construtivas:")
+    print(f" - EST: C_max = {res_est['C_max']:.3f} | sequencia: {sol_est}")
+    print(f" - EFT: C_max = {res_eft['C_max']:.3f} | sequencia: {sol_eft}")
+    print(f" - Precedence Sublist: C_max = {res_precedence['C_max']:.3f} | sequencia: {sol_precedence}")
 
     # 3) Escolher melhor ponto de partida
     def is_better(a, b):
@@ -51,9 +64,12 @@ def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> No
             return False
         if not b.get("feasible", False):
             return True
+            
         return a["C_max"] <= b["C_max"]
 
     start_sol, start_res = (sol_eft, res_eft) if is_better(res_eft, res_est) else (sol_est, res_est)
+    start_sol, start_res = (start_sol, start_res) if is_better(start_res, res_precedence) else (sol_precedence, res_precedence)
+
     if not start_res.get("feasible", False):
         print("[ERRO] Nenhuma solução construtiva viável encontrada. Encerrando esta instância.")
         return
@@ -81,11 +97,11 @@ def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> No
         return current_res
 
     # 4) Fases de busca local (cada fase começa do melhor resultado até então)
-    best_res_bl = start_res
+    # best_res_bl = start_res
     best_res_vns = start_res
 
     # JOB EXCHANGE
-    best_res_bl = run_stagnation_loop("JE", bl.bl_job_exchange, best_res_bl)
+    # best_res_bl = run_stagnation_loop("JE", bl.bl_job_exchange, best_res_bl)
 
     # # BLOCK THROW
     # best_res = run_stagnation_loop("BT", bl.insert_block_random, best_res)
@@ -102,15 +118,15 @@ def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> No
 
     # 5) VNS a partir da melhor sequência atual (se disponível)
     if "sequence_normalized" in best_res_vns:
-        try:
-            vns_res = mh.VNS(inst, best_res_vns, max_iter=200, max_stagnation=50, verbose=False)
-            if vns_res["C_max"] < best_res_vns["C_max"]:
-                print(f"[VNS] Melhoria: {best_res_vns['C_max']:.3f} -> {vns_res['C_max']:.3f}")
-                best_res_vns = vns_res
-            else:
-                print(f"[VNS] Sem melhoria (C_max = {vns_res['C_max']:.3f})")
-        except Exception as e:
-            print(f"[VNS] Erro ao executar: {e}")
+        # try:
+        vns_res = mh.VNS(inst, best_res_vns, max_iter=100, max_stagnation=10, verbose=False)
+        if vns_res["C_max"] < best_res_vns["C_max"]:
+            print(f"[VNS] Melhoria: {best_res_vns['C_max']:.3f} -> {vns_res['C_max']:.3f}")
+            best_res_vns = vns_res
+        else:
+            print(f"[VNS] Sem melhoria (C_max = {vns_res['C_max']:.3f})")
+        # except Exception as e:
+            # print(f"[VNS] Erro ao executar: {e}")
     else:
         print("[VNS] sequence_normalized ausente; VNS não executado.")
 
@@ -127,23 +143,32 @@ if __name__ == "__main__":
     # quantidade_inst_para_testar = 5 # vai testar as primeiras 5 instâncias listadas na coluna A do Excel
     quantidade_inst_para_testar = len(df)  # vai testar todas as instâncias listadas na coluna A do Excel
 
-    for row, name in enumerate(df.iloc[:quantidade_inst_para_testar, 0].dropna()):
-        file_name = str(name).strip()
+    # Defina abaixo quais índices (linhas) deseja processar.
+    # Exemplo para só a linha 52: rows_to_run = [52]
+    # Para todas: rows_to_run = None
+    rows_to_run = None # Ajuste conforme necessidade
+
+    if rows_to_run is None:
+        indices = list(range(quantidade_inst_para_testar))
+    else:
+        indices = rows_to_run
+
+    for row in indices:
+        file_name = str(df.iloc[row, 0]).strip()
         if not file_name:
             continue
 
-        num_it = 1
-        best_result = 0
-        best_result_lit = df.iloc[row, 5]  # Coluna F (6) contém o melhor resultado da literatura
-        print(f"\nIniciando simulações para instância: {file_name}")
+        num_it = 1  # pode aumentar para rodar várias repetições
+        best_result = None
+        best_result_lit = df.iloc[row, 5]  # Coluna F (6) melhor da literatura
+        print(f"\nIniciando simulações para instância: {file_name} (linha {row})")
         print("best_result_lit =", best_result_lit)
         print("------------------------------")
 
-        sum_results = 0
-        sum_time = 0
+        sum_results = 0.0
+        sum_time = 0.0
 
         for it in range(num_it):
-
             start_time = time.time()
             best_res_vns, best_res_bl = run_simulations_for_instance(file_name)
             end_time = time.time()
@@ -152,8 +177,9 @@ if __name__ == "__main__":
             sum_results += best_res_vns
             sum_time += elapsed_time
 
-            if it == 0 or best_res_vns < best_result:
+            if best_result is None or best_res_vns < best_result:
                 best_result = best_res_vns
+
         mean_result = sum_results / num_it
         mean_time = sum_time / num_it
         diff_best = ((best_result - best_result_lit) / best_result_lit) * 100
@@ -170,4 +196,6 @@ if __name__ == "__main__":
         df.iloc[row, 8] = mean_time        # Coluna I
         df.iloc[row, 9] = diff_best        # Coluna J
 
-    df.to_excel("Resultados_atualizado.xlsx", index=False)
+        # Salva imediatamente após processar a linha
+        df.to_excel("Resultados_atualizado.xlsx", index=False)
+        print(f"[SALVO] Atualizada linha {row} em Resultados_atualizado.xlsx")

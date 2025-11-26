@@ -1,7 +1,7 @@
 import random
 from typing import List, Dict, Callable, Optional
 
-from Modelagem import Instance, verify_solution
+from modelagem import Instance, verify_solution
 import busca_local as bl
 
 # -------------------------------
@@ -9,35 +9,28 @@ import busca_local as bl
 # Cada função das buscas locais retorna: (seq, sol_dict, improved).
 # Mantemos apenas as vizinhanças completamente implementadas.
 # -------------------------------
-def _wrap_deterministic_block_selection(inst: Instance, sol_dict: Dict) -> Dict:
-    return bl.deterministic_block_selection(inst, sol_dict)[1]
-
-def _wrap_deterministic_first_job_selection(inst: Instance, sol_dict: Dict) -> Dict:
-    return bl.deterministic_first_job_selection(inst, sol_dict)[1]
-
-def _wrap_deterministic_first_block_selection(inst: Instance, sol_dict: Dict) -> Dict:
-    return bl.deterministic_first_block_selection(inst, sol_dict)[1]
-
-def _wrap_deterministic_job_selection(inst: Instance, sol_dict: Dict) -> Dict:
-    return bl.deterministic_job_selection(inst, sol_dict)[1]
-
 def _wrap_deterministic_2_opt_exchange(inst: Instance, sol_dict: Dict) -> Dict:
     return bl.deterministic_2_opt_exchange(inst, sol_dict)[1]
 
 def _wrap_deterministic_job_exchange(inst: Instance, sol_dict: Dict) -> Dict:
     return bl.deterministic_job_exchange(inst, sol_dict)[1]
 
+def _wrap_deterministic_job_insertion(inst: Instance, sol_dict: Dict) -> Dict:
+    return bl._deterministic_job_insertion(inst, sol_dict)[1]
+
+def _wrap_deterministic_block_insertion(inst: Instance, sol_dict: Dict) -> Dict:
+    return bl._deterministic_block_insertion(inst, sol_dict)[1]
+
+
 # def _wrap_double_job_insert(inst: Instance, sol_dict: Dict) -> Dict:
 #     return bl.double_job_insert(inst, sol_dict)[1]
 
 # Lista default de vizinhanças (ordem de exploração)
 DEFAULT_NEIGHBORHOODS: List[Callable[[Instance, Dict], Dict]] = [
-    _wrap_deterministic_block_selection,
-    _wrap_deterministic_first_job_selection,
-    _wrap_deterministic_first_block_selection,
-    _wrap_deterministic_job_selection,
     _wrap_deterministic_2_opt_exchange,
     _wrap_deterministic_job_exchange,
+    _wrap_deterministic_job_insertion,
+    _wrap_deterministic_block_insertion,
 ]
 
 
@@ -103,20 +96,26 @@ def VNS(inst: Instance, initial_sequence: List[int], max_iter: int = 500, max_st
         iteration += 1
         improved_cycle = False
 
+
         # Explora cada vizinhança na ordem
+
+        # neighborhoods = random.shuffle(neighborhoods)
+        neighborhoods = random.sample(neighborhoods, k=len(neighborhoods))
         for neigh_index, neigh_func in enumerate(neighborhoods):
             print(f"[VNS] Iter {iteration} Tentando vizinhança {neigh_index}...")
             # Shaking: intensidade pode crescer com o índice da vizinhança
             shaken_seq = _shake_sequence(best_sol["sequence_normalized"], strength = 3)
             # shaken_seq = _shake_sequence(best_sol["sequence_normalized"], strength=neigh_index + 1)
-            shaken_eval = verify_solution(inst, shaken_seq, verbose=False)
-            if not shaken_eval["feasible"]:
-                continue  # ignora sequência infactível
+            
+            while True:
+                shaken_eval = verify_solution(inst, shaken_seq, verbose=False)
+                if not shaken_eval["feasible"]:
+                    shaken_seq = _shake_sequence(best_sol["sequence_normalized"], strength = 3)
+                else:
+                    break
 
             # Local search na vizinhança
             new_sol = neigh_func(inst, shaken_eval)
-            if not new_sol["feasible"]:
-                continue
             new_C = new_sol["C_max"]
 
             if verbose:
