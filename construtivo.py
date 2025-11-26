@@ -419,7 +419,8 @@ def greedy_constructive_insert(
     inst: Instance,
     sequence: List[int],
     missing_jobs: List[int],
-    verbose: bool = False
+    verbose: bool = False,
+    plot_title: str | None = None
 ) -> List[int]:
     """
     Insere, de forma gulosa, todos os jobs em missing_jobs na sequência parcial 'sequence'.
@@ -468,5 +469,11 @@ def greedy_constructive_insert(
             print(f"Jobs restantes: {remaining}")
             
     res = md.verify_solution(inst, sol)
-
+    
+    if plot_title is not None:
+        try:
+            vw.plot_gantt(inst, res, title=plot_title)
+        except Exception as e:
+            if verbose:
+                print(f"[constructive_build] Falha ao plotar Gantt: {e}")
     return sol, res

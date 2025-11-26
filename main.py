@@ -48,6 +48,7 @@ def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> No
     precedence_sol, res_precedence,  missing_jobs = ct.create_precedence_sublist(inst=inst)
     sol_precedence, res_precedence = ct.greedy_constructive_insert(
         inst=inst, sequence=precedence_sol, missing_jobs=missing_jobs
+        # plot_title="Gantt — Construtivo por Precedence Sublist"
     )
     
     print(f"Solução por Precedence Sublist: C_max = {res_precedence['C_max']:.3f}")
@@ -132,7 +133,7 @@ def run_simulations_for_instance(file_path: str, max_stagnation: int = 10) -> No
 
     print(f"\nFinal da instância {file_path} — Melhor C_max = {best_res_vns['C_max']:.3f}")
 
-    return best_res_vns["C_max"], best_res_bl["C_max"]
+    return best_res_vns["C_max"]
 
 
 if __name__ == "__main__":
@@ -170,7 +171,7 @@ if __name__ == "__main__":
 
         for it in range(num_it):
             start_time = time.time()
-            best_res_vns, best_res_bl = run_simulations_for_instance(file_name)
+            best_res_vns = run_simulations_for_instance(file_name)
             end_time = time.time()
             elapsed_time = end_time - start_time
 

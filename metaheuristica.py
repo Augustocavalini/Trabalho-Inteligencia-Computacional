@@ -10,16 +10,16 @@ import busca_local as bl
 # Mantemos apenas as vizinhanças completamente implementadas.
 # -------------------------------
 def _wrap_deterministic_2_opt_exchange(inst: Instance, sol_dict: Dict) -> Dict:
-    return bl.deterministic_2_opt_exchange(inst, sol_dict)[1]
+    return bl.deterministic_2_opt_exchange(inst, sol_dict, first_improvement= True)[1]
 
 def _wrap_deterministic_job_exchange(inst: Instance, sol_dict: Dict) -> Dict:
-    return bl.deterministic_job_exchange(inst, sol_dict)[1]
+    return bl.deterministic_job_exchange(inst, sol_dict, first_improvement= True)[1]
 
 def _wrap_deterministic_job_insertion(inst: Instance, sol_dict: Dict) -> Dict:
-    return bl._deterministic_job_insertion(inst, sol_dict)[1]
+    return bl._deterministic_job_insertion(inst, sol_dict, first_improvement= True)[1]
 
 def _wrap_deterministic_block_insertion(inst: Instance, sol_dict: Dict) -> Dict:
-    return bl._deterministic_block_insertion(inst, sol_dict)[1]
+    return bl._deterministic_block_insertion(inst, sol_dict,first_improvement=True)[1]
 
 
 # def _wrap_double_job_insert(inst: Instance, sol_dict: Dict) -> Dict:
