@@ -159,7 +159,7 @@ if __name__ == "__main__":
         if not file_name:
             continue
 
-        num_it = 1  # pode aumentar para rodar várias repetições
+        num_it = 10
         best_result = None
         best_result_lit = df.iloc[row, 5]  # Coluna F (6) melhor da literatura
         print(f"\nIniciando simulações para instância: {file_name} (linha {row})")
